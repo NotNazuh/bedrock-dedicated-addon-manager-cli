@@ -4,9 +4,9 @@
 For this example we will be using a behavior pack called FamousMonuments.mcpack. (This addon doesn't actually exist, its just an example)
 
 **PREREQUISITES:**
-A working Bedrock dedicated server (Before doing anything, make sure to run your server first so everything gets initalized and ready)   return
-Python3 (Python3.11 was used to create this)   return
-a working bedrock addon   return
+A working Bedrock dedicated server (Before doing anything, make sure to run your server first so everything gets initalized and ready) <br/>
+Python3 (Python3.11 was used to create this)<br/>
+a working bedrock addon<br/>
 
 **Lets Get Started:**
 If you havent already, add the addons to their respective pack folder in the bedrock server (resource pack -> server_path/resource_packs, behavior pack -> server_path/behavior_packs)  
