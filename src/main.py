@@ -185,11 +185,19 @@ def disable_addon(uuid: str):
 
     set_active_addons(addon.type, json.dumps(res))
 
-def list_addons():
+def list_addons(sort_by=None):
     
-    addons = list(get_addons())
-    addons.sort(key=lambda x: x.enabled, reverse=true)
-    
+    addons: List[Addon] = list(get_addons())
+    if sort_by == None:
+        addons.sort(key=lambda x: x.enabled, reverse=true)
+    else:
+        if sort_by == 'name':
+            addons.sort(key=lambda x: x.manifest.header.name, reverse=false)
+        elif sort_by == 'type':
+            addons.sort(key=lambda x: x.type)
+        elif sort_by == 'name-enabled':
+            addons.sort(key=lambda x: x.manifest.header.name, reverse=false)
+            addons.sort(key=lambda x: x.enabled, reverse=true)
     print(colorama.Fore.BLUE + f"IDX{' ' * 7}NAME{' ' * 63}TYPE{' ' * 15}UUID{' ' * 44}ENABLED{' '* 10}SIZE" + colorama.Fore.RESET)
     for i, x in enumerate(addons):
         
@@ -244,7 +252,7 @@ def display_help():
     output = '\nCOMMANDS\n\n'
     output += 'How to use: py main.py <command>\n\n'
     output += 'setup - run the setup function to update your config.json file\n\n'
-    output += 'list - returns a list of all commands in the server, active or inactive\n\n'
+    output += 'list or list <type/name/name-enabled> - returns a list of all commands in the server, active or inactive, or a list sorted by the given key\n\n'
     output += 'help - displays help\n\n'
     output += 'enable <uuid/all> - enables the addon with the given uuid or all addons\n\n'
     output += 'disable <uuid/all> - disables the addon with the given uuid or all addons\n\n'
@@ -269,7 +277,7 @@ if __name__ == '__main__':
             display_help()
 
         case 'list':
-            list_addons()
+            list_addons(args[1] if len(args) > 1 and args[1] in ['type', 'name', 'name-enabled'] else None)
             exit()
         
         case 'enable':
