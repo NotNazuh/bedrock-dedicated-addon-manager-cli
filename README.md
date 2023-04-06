@@ -9,8 +9,8 @@ Python3 (Python3.11 was used to create this)
 a working bedrock addon
 
 **Lets Get Started:**
-If you havent already, add the addons to their respective pack folder in the bedrock server (resource pack -> server_path/resource_packs, behavior pack -> server_path/behavior_packs)
-First clone this repo, which can either be done by downloading this repo, or using git
+If you havent already, add the addons to their respective pack folder in the bedrock server (resource pack -> server_path/resource_packs, behavior pack -> server_path/behavior_packs)  
+First clone this repo, which can either be done by downloading this repo, or using git  
 ```git
 git https://github.com/NotNazuh/bedrock-dedicated-addon-manager-cli.git .
 ```
@@ -36,7 +36,7 @@ IDX       NAME                                                               TYP
 6       | Defense Turrets                                              |     resource    |      e3c85bb8-7c73-45ec-8693-f6583fe68cac      |      false     |       72 kb
 ```
 
-Cool, now we can see all our addons, to see how to enable and disable addons run the help command, which will show all commands.
+Cool, now we can see all our addons, to see how to enable and disable addons run the help command, which will show all commands.  
 ```powershell
 python3 main.py help
 ```
