@@ -2,6 +2,7 @@
 
 ##### KNOWN ISSUES:
 1. Addons with a manifest that have multiline variables will not work, and will throw an "Invalid control character" exception.
+2. If the addon has mutltiple manifest.json files and the application doesn't pick the correct one then it will throw an error.
 
 ##### HOW TO USE:
 ** _Assuming that you've already cloned the repo_ **
