@@ -1,4 +1,8 @@
 ## BDS Addon Manager
+
+##### KNOWN ISSUES:
+1. Addons with a manifest that have multiline variables will not work, and will throw an "Invalid control character" exception.
+
 ##### HOW TO USE:
 ** _Assuming that you've already cloned the repo_ **
 For this example we will be using a behavior pack called FamousMonuments.mcpack. (This addon doesn't actually exist, its just an example)
