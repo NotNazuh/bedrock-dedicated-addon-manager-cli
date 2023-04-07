@@ -22,7 +22,7 @@ def get_world_path():
     return os.path.join(config.server_path, 'worlds\\' + os.listdir(os.path.join(config.server_path, 'worlds'))[config.world_idx])
 
 def json2obj(data: any) -> object:
-    return dict2obj(json.loads(data))
+    return dict2obj(json.loads(data, strict=false))
 
 def dict2obj(d):
     if isinstance(d, list): d = [dict2obj(x) for x in d]
@@ -46,7 +46,10 @@ class Addon:
 
     def setPath(self, path: str):
         self.path = path
-        self._get_manifest(), self._get_type(), self._get_enabled(), self._get_name()
+        self._get_manifest()
+        self._get_type()
+        self._get_enabled()
+        self._get_name()
     
     def _get_manifest(self):
         try:
@@ -59,13 +62,15 @@ class Addon:
                     self.manifest = json2obj(file.read())
             else:
                 with zipfile.ZipFile(self.path) as zf:
-                    file_path = list(filter(lambda x: 'manifest.json' in x, zf.namelist()))[0]
+                    file_path = list(filter(lambda x: 'manifest.json' in x and 'bridge' not in x, zf.namelist()))[0]
+
+                    # file_path = list(filter(lambda x: 'bridge' not in x, file_paths))[0]
                     
                     with zf.open(file_path) as file:
                         data = file.read().decode('utf-8')
                         self.manifest = json2obj(re.sub(r'\/\*(\*(?!\/)|[^*])*\*\/|\/\/.*', '', data, flags=re.MULTILINE))
         except Exception as e:
-            print('EXCEPTION OCCURED WHILE GETTING ADDON MANIFEST FROM ARCHIVE!')
+            print('EXCEPTION OCCURED WHILE GETTING ADDON MANIFEST FROM ADDON!')
             print("EXCEPTION MESSAGE:", e)
             print('HAPPENED AT PATH:', self.path)
             exit()
@@ -207,7 +212,7 @@ def list_addons(sort_by=None):
         ## IDX
         output = f"{i+1}{idx_to_path_spacing} | "
         ## NAME
-        output += f"{''.join((char if i < 47 else '.' if i >= 47 and i < 50 else '') for i, char in enumerate(list(x.name)))}"
+        output += f"{''.join((char if i < 47 else '.' if i >= 47 and i < 50 else ' ') for i, char in enumerate(list(x.name)))}"
         ## TYPE
         output += f"{path_to_type_spacing}  |     { (colorama.Fore.LIGHTYELLOW_EX + x.type + colorama.Fore.RESET) if x.type == 'behavior' else (colorama.Fore.LIGHTCYAN_EX + x.type + colorama.Fore.RESET)}"
         ## UUID
