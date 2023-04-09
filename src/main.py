@@ -2,21 +2,21 @@ from typing import List, Union
 from types import SimpleNamespace
 from shutil import copyfile, copytree
 from pathlib import Path
-import json, sys, os, colorama, zipfile, re
+import json, sys, os, colorama, zipfile, re, math
 false, true = False, True
 
-def get_dir_size(start_path = '.'):
-    total_size = 0
-    for dirpath, dirnames, filenames in os.walk(start_path):
-        for f in filenames:
-            fp = os.path.join(dirpath, f)
-            # skip if it is symbolic link
-            if not os.path.islink(fp):
-                total_size += os.path.getsize(fp)
-    return total_size
-
-def get_file_size(path: str) -> int:
-    return os.path.getsize(path)
+def get_size(start_path = '.'):
+    if os.path.isdir(start_path):
+        total_size = 0
+        for dirpath, dirnames, filenames in os.walk(start_path):
+            for f in filenames:
+                fp = os.path.join(dirpath, f)
+                # skip if it is symbolic link
+                if not os.path.islink(fp):
+                    total_size += os.path.getsize(fp)
+        return total_size
+    else:
+        return os.path.getsize(start_path)
 
 def get_world_path():
     return os.path.join(config.server_path, 'worlds\\' + os.listdir(os.path.join(config.server_path, 'worlds'))[config.world_idx])
@@ -50,6 +50,8 @@ class Addon:
         self._get_type()
         self._get_enabled()
         self._get_name()
+        self._get_size()
+        self._get_is_dev()
     
     def _get_manifest(self):
         try:
@@ -89,8 +91,18 @@ class Addon:
         
         for i, x in enumerate(self.name):
             if x == 'Â' or x == '§': self.name = self.name.replace((x + self.name[i + 1]) if i + 1 < len(self.name) else x, '')
+    
+    def _get_size(self):
+        self.size = math.floor(get_size(self.path)/1024)
+
+    def _get_is_dev(self):
+        if self.path.split('\\')[-2] in ['development_behavior_packs', 'development_resource_packs']:
+            self.dev = true
+        else:
+            self.dev = false
 
 def get_addons() -> List[Addon]:
+    ## exclude default addons
     exclusion_list: List[str] = [
         'chemistry',
         'vanilla',
@@ -100,18 +112,36 @@ def get_addons() -> List[Addon]:
     
     rs_packs = os.path.join(config.server_path, 'resource_packs')
     bh_packs = os.path.join(config.server_path, 'behavior_packs')
+    rs_dev_packs = os.path.join(config.server_path, 'development_resource_packs')
+    bh_dev_packs = os.path.join(config.server_path, 'development_behavior_packs')
 
-    addons:str = list(filter(lambda x: x not in exclusion_list, os.listdir(rs_packs)))
-    rs_length = len(addons)
-    addons.extend( list(filter(lambda x: x not in exclusion_list, os.listdir((bh_packs))) ))
+    lens = []
+    addons:List[str] = list(filter(lambda x: x not in exclusion_list and not 'test_vanilla_' in x and not 'vanilla_' in x, os.listdir(rs_packs)))
+    lens.append(len(addons))
 
+    addons.extend(list(filter(lambda x: x not in exclusion_list and not 'test_vanilla_' in x and not 'vanilla_' in x, os.listdir((bh_packs)))))
+    lens.append(len(addons) - lens[0])
+
+    addons.extend(list(os.listdir(rs_dev_packs)))
+    lens.append(len(addons) - lens[0] - lens[1])
+    
+    addons.extend(os.listdir(bh_dev_packs))
+    lens.append(len(addons) - lens[0] - lens[1] - lens[2])
+
+    idx = 0
     for i, x in enumerate(addons):
-        if x.startswith('test_vanilla_') or x.startswith('vanilla_'):
-            list.remove(addons, x)
-            continue
-        addons[i] = os.path.join(rs_packs if i < rs_length else bh_packs, x)
+        res_path:str  = ''
+        if lens[idx] <= 0:
+            idx += 1
 
-    return map(Addon, list(filter(lambda x: not x.startswith('test_vanilla_') and not x.startswith('vanilla_'), addons)))
+        match idx:
+            case 0: res_path = rs_packs
+            case 1: res_path = bh_packs
+            case 2: res_path = rs_dev_packs
+            case 3: res_path = bh_dev_packs
+        addons[i] = os.path.join(res_path, x)
+        lens[idx] -= 1
+    return map(Addon, addons)
 
 def get_active_addons(_type: str=None) -> List[world_json_item]:
     if _type == None:
@@ -193,6 +223,8 @@ def disable_addon(uuid: str):
 def list_addons(sort_by=None):
     
     addons: List[Addon] = list(get_addons())
+
+    ## sort addons
     if sort_by == None:
         addons.sort(key=lambda x: x.enabled, reverse=true)
     else:
@@ -203,24 +235,29 @@ def list_addons(sort_by=None):
         elif sort_by == 'name-enabled':
             addons.sort(key=lambda x: x.manifest.header.name, reverse=false)
             addons.sort(key=lambda x: x.enabled, reverse=true)
+        elif sort_by == 'size':
+            addons.sort(key=lambda x: x.size, reverse=true)
+
+    ## print addons
     print(colorama.Fore.BLUE + f"IDX{' ' * 7}NAME{' ' * 63}TYPE{' ' * 15}UUID{' ' * 44}ENABLED{' '* 10}SIZE" + colorama.Fore.RESET)
     for i, x in enumerate(addons):
-        
         idx_to_path_spacing = ' ' * (7 - len(str(i+1)))
         path_to_type_spacing = ' ' * ((59 - len(x.name)) if 59 - len(x.name) > 0 else 9)
+        type_string = (colorama.Fore.LIGHTYELLOW_EX + x.type + colorama.Fore.RESET) if x.type == 'behavior' else (colorama.Fore.LIGHTCYAN_EX + x.type + colorama.Fore.RESET)
+        enabled_string = (colorama.Fore.LIGHTMAGENTA_EX + ' DEV ' + colorama.Fore.RESET) if x.dev else colorama.Fore.RED + str(x.enabled).lower() + colorama.Fore.RESET if not x.enabled else colorama.Fore.GREEN + str(x.enabled).lower() + colorama.Fore.RESET
 
         ## IDX
         output = f"{i+1}{idx_to_path_spacing} | "
         ## NAME
         output += f"{''.join((char if i < 47 else '.' if i >= 47 and i < 50 else ' ') for i, char in enumerate(list(x.name)))}"
         ## TYPE
-        output += f"{path_to_type_spacing}  |     { (colorama.Fore.LIGHTYELLOW_EX + x.type + colorama.Fore.RESET) if x.type == 'behavior' else (colorama.Fore.LIGHTCYAN_EX + x.type + colorama.Fore.RESET)}"
+        output += f"{path_to_type_spacing}  |     {type_string}"
         ## UUID
         output += f"    |      {x.manifest.header.uuid}"
         ## ENABLED
-        output += f'      |      {colorama.Fore.RED + str(x.enabled).lower() + colorama.Fore.RESET if not x.enabled else colorama.Fore.GREEN + str(x.enabled).lower() + colorama.Fore.RESET}'
-        file_size_spacing = ' ' * ((6 - len(str(int(get_file_size(x.path) if os.path.isfile(x.path) else get_dir_size(x.path)) >> 10) + 'kb')) + 5)
-        output += f"{' ' * 5 if x.enabled else ' ' * 4}|{file_size_spacing}{(get_file_size(x.path) if os.path.isfile(x.path) else get_dir_size(x.path)) >> 10}" + colorama.Fore.LIGHTBLACK_EX + ' kb' + colorama.Fore.RESET
+        output += f'      |      {enabled_string}'
+        file_size_spacing = ' ' * (6 - len(str(x.size) + 'kb') + 5)
+        output += f"{' ' * 5 if x.enabled else ' ' * 4}|{file_size_spacing}{x.size}" + colorama.Fore.LIGHTBLACK_EX + ' kb' + colorama.Fore.RESET
         print(output)
 
 class config:
@@ -282,7 +319,7 @@ if __name__ == '__main__':
             display_help()
 
         case 'list':
-            list_addons(args[1] if len(args) > 1 and args[1] in ['type', 'name', 'name-enabled'] else None)
+            list_addons(args[1] if len(args) > 1 and args[1] in ['type', 'name', 'name-enabled', 'size'] else None)
             exit()
         
         case 'enable':
