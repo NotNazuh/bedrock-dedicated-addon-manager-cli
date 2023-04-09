@@ -8,7 +8,6 @@
 
 ##### HOW TO USE:
 ** _Assuming that you've already cloned the repo_ **
-For this example we will be using a behavior pack called FamousMonuments.mcpack. (This addon doesn't actually exist, its just an example)
 
 **PREREQUISITES:**
 A working Bedrock dedicated server (Before doing anything, make sure to run your server first so everything gets initalized and ready) <br/>
