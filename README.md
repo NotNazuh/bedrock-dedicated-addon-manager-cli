@@ -3,6 +3,9 @@
 ##### KNOWN ISSUES:
 1. If the addon has mutltiple manifest.json files and the application doesn't pick the correct one then it will throw an error.
 
+##### FEATURE ROADMAP:
+1. Ability to set an addon's priority
+
 ##### HOW TO USE:
 ** _Assuming that you've already cloned the repo_ **
 For this example we will be using a behavior pack called FamousMonuments.mcpack. (This addon doesn't actually exist, its just an example)
