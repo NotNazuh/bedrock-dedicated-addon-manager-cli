@@ -49,9 +49,9 @@ class Addon:
         self._get_manifest()
         self._get_type()
         self._get_enabled()
+        self._get_is_dev()
         self._get_name()
         self._get_size()
-        self._get_is_dev()
     
     def _get_manifest(self):
         try:
@@ -86,20 +86,19 @@ class Addon:
     def _get_type(self):
         self.type = 'behavior' if self.manifest.modules[0].type == 'data' else 'resource'
 
+    def _get_is_dev(self):
+        self.dev = self.path.split('\\')[-2] in ['development_behavior_packs', 'development_resource_packs']
+
     def _get_name(self):
         self.name = self.manifest.header.name if self.manifest.header.name != 'pack.name' else self.path.split('\\')[-1].split('.')[0]
-        
+        if self.dev: self.name = '[DEV] ' + self.name
+        self.name = self.name.strip()
+
         for i, x in enumerate(self.name):
             if x == 'Â' or x == '§': self.name = self.name.replace((x + self.name[i + 1]) if i + 1 < len(self.name) else x, '')
     
     def _get_size(self):
         self.size = math.floor(get_size(self.path)/1024)
-
-    def _get_is_dev(self):
-        if self.path.split('\\')[-2] in ['development_behavior_packs', 'development_resource_packs']:
-            self.dev = true
-        else:
-            self.dev = false
 
 def get_addons() -> List[Addon]:
     ## exclude default addons
@@ -141,7 +140,7 @@ def get_addons() -> List[Addon]:
             case 3: res_path = bh_dev_packs
         addons[i] = os.path.join(res_path, x)
         lens[idx] -= 1
-    return map(Addon, addons)
+    return list(map(Addon, addons))
 
 def get_active_addons(_type: str=None) -> List[world_json_item]:
     if _type == None:
@@ -173,11 +172,14 @@ def disable_all():
     set_active_addons('behavior', json.dumps([]))
 
 def enable_addon(uuid: str):
-    addon = list(filter(lambda x: x.manifest.header.uuid == uuid, get_addons()))[0]
+    data = list(filter(lambda x: x.manifest.header.uuid == uuid, get_addons()))
 
-    if type(addon) != Addon:
-        print('This addon doesn\'t seem to exist!')
-    
+    if len(data) == 0 or type(data[0]) != Addon:
+        print("Couldn't find an addon with the given uuid!")
+        return
+
+    addon = data[0]
+
     if addon.enabled:
         print('this addon is already enabled!')
         exit()
@@ -220,6 +222,9 @@ def disable_addon(uuid: str):
 
     set_active_addons(addon.type, json.dumps(res))
 
+def colorize(string: str, color):
+    return (color + string + colorama.Fore.RESET)
+
 def list_addons(sort_by=None):
     
     addons: List[Addon] = list(get_addons())
@@ -239,23 +244,25 @@ def list_addons(sort_by=None):
             addons.sort(key=lambda x: x.size, reverse=true)
 
     ## print addons
-    print(colorama.Fore.BLUE + f"IDX{' ' * 7}NAME{' ' * 63}TYPE{' ' * 15}UUID{' ' * 44}ENABLED{' '* 10}SIZE" + colorama.Fore.RESET)
+    print(colorama.Fore.BLUE + f"IDX{' ' * 7}NAME{' ' * 63}TYPE{' ' * 15}UUID{' ' * 43}ENABLED{' '* 10}SIZE" + colorama.Fore.RESET)
     for i, x in enumerate(addons):
         idx_to_path_spacing = ' ' * (7 - len(str(i+1)))
         path_to_type_spacing = ' ' * ((59 - len(x.name)) if 59 - len(x.name) > 0 else 9)
+
+        name_string = ''.join((char if i < 47 else '.' if i >= 47 and i < 50 else ' ') for i, char in enumerate(list(x.name)))
         type_string = (colorama.Fore.LIGHTYELLOW_EX + x.type + colorama.Fore.RESET) if x.type == 'behavior' else (colorama.Fore.LIGHTCYAN_EX + x.type + colorama.Fore.RESET)
-        enabled_string = (colorama.Fore.LIGHTMAGENTA_EX + ' DEV ' + colorama.Fore.RESET) if x.dev else colorama.Fore.RED + str(x.enabled).lower() + colorama.Fore.RESET if not x.enabled else colorama.Fore.GREEN + str(x.enabled).lower() + colorama.Fore.RESET
+        enabled_string = colorama.Fore.RED + str(x.enabled).lower() + colorama.Fore.RESET if not x.enabled else colorama.Fore.GREEN + str(x.enabled).lower() + colorama.Fore.RESET
 
         ## IDX
         output = f"{i+1}{idx_to_path_spacing} | "
         ## NAME
-        output += f"{''.join((char if i < 47 else '.' if i >= 47 and i < 50 else ' ') for i, char in enumerate(list(x.name)))}"
+        output += name_string
         ## TYPE
         output += f"{path_to_type_spacing}  |     {type_string}"
         ## UUID
         output += f"    |      {x.manifest.header.uuid}"
         ## ENABLED
-        output += f'      |      {enabled_string}'
+        output += f'      |     {enabled_string}'
         file_size_spacing = ' ' * (6 - len(str(x.size) + 'kb') + 5)
         output += f"{' ' * 5 if x.enabled else ' ' * 4}|{file_size_spacing}{x.size}" + colorama.Fore.LIGHTBLACK_EX + ' kb' + colorama.Fore.RESET
         print(output)
