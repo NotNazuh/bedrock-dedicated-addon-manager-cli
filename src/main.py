@@ -84,7 +84,7 @@ class Addon:
         self.enabled = true if len(list(filter(lambda x: x.pack_id == self.manifest.header.uuid, get_active_addons()))) > 0 else false
 
     def _get_type(self):
-        self.type = 'behavior' if self.manifest.modules[0].type == 'data' else 'resource'
+        self.type = 'behavior' if self.manifest.modules[0].type == 'data' else 'resource' if self.manifest.modules[0].type == 'resources' else 'other'
 
     def _get_is_dev(self):
         self.dev = self.path.split('\\')[-2] in ['development_behavior_packs', 'development_resource_packs']
@@ -107,6 +107,7 @@ def get_addons() -> List[Addon]:
         'vanilla',
         'experimental_next_major_update',
         'experimental_sniffer',
+        'experimental_cameras'
     ]
     
     rs_packs = os.path.join(config.server_path, 'resource_packs')
@@ -114,33 +115,42 @@ def get_addons() -> List[Addon]:
     rs_dev_packs = os.path.join(config.server_path, 'development_resource_packs')
     bh_dev_packs = os.path.join(config.server_path, 'development_behavior_packs')
 
+    def get_paths(path: str):
+        return [str(os.path.join(path, filename)) for filename in filter(lambda x: x not in exclusion_list and not 'test_vanilla_' in x and not 'vanilla_' in x, os.listdir(path))]
+
+    def get_paths_dev(path: str):
+        return [str(os.path.join(path, filename)) for filename in os.listdir(path)]
+
     lens = []
-    addons:List[str] = list(filter(lambda x: x not in exclusion_list and not 'test_vanilla_' in x and not 'vanilla_' in x, os.listdir(rs_packs)))
+    addons:List[str] = get_paths(rs_packs)
     lens.append(len(addons))
 
-    addons.extend(list(filter(lambda x: x not in exclusion_list and not 'test_vanilla_' in x and not 'vanilla_' in x, os.listdir((bh_packs)))))
+    addons.extend(get_paths(bh_packs))
     lens.append(len(addons) - lens[0])
 
-    addons.extend(list(os.listdir(rs_dev_packs)))
+    addons.extend(get_paths_dev(rs_dev_packs)) ## no need to waste resources using get_paths as the development folders wont ever (hopefully) include vanilla packs
     lens.append(len(addons) - lens[0] - lens[1])
     
-    addons.extend(os.listdir(bh_dev_packs))
+    addons.extend(get_paths_dev(bh_dev_packs)) ## no need to waste resources using get_paths as the development folders wont ever (hopefully) include vanilla packs
     lens.append(len(addons) - lens[0] - lens[1] - lens[2])
 
-    idx = 0
-    for i, x in enumerate(addons):
-        res_path:str  = ''
-        if lens[idx] <= 0:
-            idx += 1
+    print('//'.join(str(x) for x in lens))
 
-        match idx:
-            case 0: res_path = rs_packs
-            case 1: res_path = bh_packs
-            case 2: res_path = rs_dev_packs
-            case 3: res_path = bh_dev_packs
-        addons[i] = os.path.join(res_path, x)
-        lens[idx] -= 1
-    return list(map(Addon, addons))
+    if lens[0] + lens[1] + lens[2] + lens[3] == 0:
+        print('No Packs Found!')
+        exit()
+    
+    res: List[str] = []
+    folder_idx: int = 0
+    for i, x in enumerate(addons):
+        while len(lens) <= 0: folder_idx += 1 # keep progress to the next folder
+        if not os.path.isdir(x):
+            print("Uknown item found in addon folder, skipping!")
+            continue
+        res.append(x)
+        lens[folder_idx] -= 1
+
+    return list(map(Addon, res))
 
 def get_active_addons(_type: str=None) -> List[world_json_item]:
     if _type == None:
@@ -250,7 +260,7 @@ def list_addons(sort_by=None):
         path_to_type_spacing = ' ' * ((59 - len(x.name)) if 59 - len(x.name) > 0 else 9)
 
         name_string = ''.join((char if i < 47 else '.' if i >= 47 and i < 50 else ' ') for i, char in enumerate(list(x.name)))
-        type_string = (colorama.Fore.LIGHTYELLOW_EX + x.type + colorama.Fore.RESET) if x.type == 'behavior' else (colorama.Fore.LIGHTCYAN_EX + x.type + colorama.Fore.RESET)
+        type_string = (colorama.Fore.LIGHTYELLOW_EX + x.type + colorama.Fore.RESET) if x.type == 'behavior' else (colorama.Fore.LIGHTCYAN_EX + x.type + colorama.Fore.RESET) if x.type == 'resource' else (colorama.Fore.LIGHTMAGENTA_EX + x.type + '   ' + colorama.Fore.RESET)
         enabled_string = colorama.Fore.RED + str(x.enabled).lower() + colorama.Fore.RESET if not x.enabled else colorama.Fore.GREEN + str(x.enabled).lower() + colorama.Fore.RESET
 
         ## IDX
@@ -290,11 +300,10 @@ def load_config() -> bool:
             content = config_file.read()
             if len(content) < 3:
                 return false
-
+            
             data = json.loads(content)
             config.server_path = data['server_path']
             config.world_idx = int(data['world_idx'])
-
             return true
 
 def display_help():
@@ -310,7 +319,7 @@ def display_help():
 if __name__ == '__main__':
     colorama.init()
     args = sys.argv[1:]
-
+    
     if not load_config():
         setup_config()
 
