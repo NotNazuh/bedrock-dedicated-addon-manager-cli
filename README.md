@@ -11,7 +11,7 @@
 
 **PREREQUISITES:**
 A working Bedrock dedicated server (Before doing anything, make sure to run your server first so everything gets initalized and ready) <br/>
-Python3 (Python3.11 was used to create this)<br/>
+Python3.11 (REQUIRES THESE PACKAGES: colorama, zipfile, pathlib, os, sys, re, math, shutil, types, and typing)<br/>
 a working bedrock addon<br/>
 
 **Lets Get Started:**
