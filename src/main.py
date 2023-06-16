@@ -134,8 +134,6 @@ def get_addons() -> List[Addon]:
     addons.extend(get_paths_dev(bh_dev_packs)) ## no need to waste resources using get_paths as the development folders wont ever (hopefully) include vanilla packs
     lens.append(len(addons) - lens[0] - lens[1] - lens[2])
 
-    print('//'.join(str(x) for x in lens))
-
     if lens[0] + lens[1] + lens[2] + lens[3] == 0:
         print('No Packs Found!')
         exit()
