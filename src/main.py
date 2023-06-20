@@ -47,6 +47,8 @@ class Addon:
     def setPath(self, path: str):
         self.path = path
         self._get_manifest()
+        self._get_is_valid()
+        if not self.is_valid: return
         self._get_type()
         self._get_enabled()
         self._get_is_dev()
@@ -58,7 +60,10 @@ class Addon:
             if os.path.isdir(self.path):
                 files = os.listdir(self.path)
                 if not 'manifest.json' in files:
-                    raise Exception(f"Manifest file doesn't exist in folder at path: {self.path}"); return
+                    print("No manifest found, Skipping:", self.path)
+                    self.manifest = None
+                    return
+                    # raise Exception(f"Manifest file doesn't exist in folder at path: {self.path}"); return
                 
                 with open(os.path.join(self.path, 'manifest.json')) as file:
                     self.manifest = json2obj(file.read())
@@ -84,7 +89,7 @@ class Addon:
         self.enabled = true if len(list(filter(lambda x: x.pack_id == self.manifest.header.uuid, get_active_addons()))) > 0 else false
 
     def _get_type(self):
-        self.type = 'behavior' if self.manifest.modules[0].type == 'data' else 'resource' if self.manifest.modules[0].type == 'resources' else 'other'
+        self.type = 'resource' if self.manifest.modules[0].type == 'resources' else 'behavior' ## if self.manifest.modules[0].type == 'resources' else 'other'
 
     def _get_is_dev(self):
         self.dev = self.path.split('\\')[-2] in ['development_behavior_packs', 'development_resource_packs']
@@ -99,6 +104,9 @@ class Addon:
     
     def _get_size(self):
         self.size = math.floor(get_size(self.path)/1024)
+
+    def _get_is_valid(self):
+        self.is_valid = True if not self.manifest == None else False
 
 def get_addons() -> List[Addon]:
     ## exclude default addons
@@ -142,8 +150,8 @@ def get_addons() -> List[Addon]:
     folder_idx: int = 0
     for i, x in enumerate(addons):
         while len(lens) <= 0: folder_idx += 1 # keep progress to the next folder
-        if not os.path.isdir(x):
-            print("Uknown item found in addon folder, skipping!")
+        if not os.path.isdir(x) and (os.path.isfile(x) and not x.split(".")[-1] in ["zip", "mcpack"]):
+            print("Not a valid Addon, Skipping:", x)
             continue
         res.append(x)
         lens[folder_idx] -= 1
@@ -235,7 +243,7 @@ def colorize(string: str, color):
 
 def list_addons(sort_by=None):
     
-    addons: List[Addon] = list(get_addons())
+    addons: List[Addon] = list(filter(lambda x: x.is_valid == True, get_addons()))
 
     ## sort addons
     if sort_by == None:
