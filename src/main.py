@@ -80,6 +80,7 @@ class Addon:
             print('EXCEPTION OCCURED WHILE GETTING ADDON MANIFEST FROM ADDON!')
             print("EXCEPTION MESSAGE:", e)
             print('HAPPENED AT PATH:', self.path)
+            print('ERROR:', e)
             exit()
 
     def _get_pack_id_object(self):
@@ -108,15 +109,16 @@ class Addon:
     def _get_is_valid(self):
         self.is_valid = True if not self.manifest == None else False
 
-def get_addons() -> List[Addon]:
-    ## exclude default addons
-    exclusion_list: List[str] = [
-        'chemistry',
-        'vanilla',
-        'experimental_next_major_update',
-        'experimental_sniffer',
-        'experimental_cameras'
-    ]
+def get_blacklist() -> List[str]:
+    with open('blacklist.json', 'r') as file:
+        return json.loads(file.read())
+
+def set_blacklist(new_blacklist: List[str]) -> None:
+    with open('blacklist.json', 'w') as file:
+        file.write(json.dumps(new_blacklist, indent=4))
+
+def get_all_addon_paths() -> List[str]:
+    exclusion_list: List[str] = []
     
     rs_packs = os.path.join(config.server_path, 'resource_packs')
     bh_packs = os.path.join(config.server_path, 'behavior_packs')
@@ -131,16 +133,59 @@ def get_addons() -> List[Addon]:
 
     lens = []
     addons:List[str] = get_paths(rs_packs)
-    lens.append(len(addons))
+    lens.append(len(addons)) ## resource pack count
 
     addons.extend(get_paths(bh_packs))
-    lens.append(len(addons) - lens[0])
+    lens.append(len(addons) - lens[0]) ## behavior pack count
 
     addons.extend(get_paths_dev(rs_dev_packs)) ## no need to waste resources using get_paths as the development folders wont ever (hopefully) include vanilla packs
-    lens.append(len(addons) - lens[0] - lens[1])
+    lens.append(len(addons) - lens[0] - lens[1]) ## dev resource pack count
     
     addons.extend(get_paths_dev(bh_dev_packs)) ## no need to waste resources using get_paths as the development folders wont ever (hopefully) include vanilla packs
-    lens.append(len(addons) - lens[0] - lens[1] - lens[2])
+    lens.append(len(addons) - lens[0] - lens[1] - lens[2]) ## dev behavior pack count
+
+    if lens[0] + lens[1] + lens[2] + lens[3] == 0:
+        print('No Packs Found!')
+        exit()
+    
+    res: List[str] = []
+    folder_idx: int = 0
+    for i, x in enumerate(addons):
+        while len(lens) <= 0: folder_idx += 1 # keep progress to the next folder
+        if not os.path.isdir(x) and (os.path.isfile(x) and not x.split(".")[-1] in ["zip", "mcpack"]):
+            print("Not a valid Addon, Skipping:", x)
+            continue
+        res.append(x)
+        lens[folder_idx] -= 1
+
+    return res
+
+def get_addons() -> List[Addon]:
+    exclusion_list: List[str] = get_blacklist()
+    
+    rs_packs = os.path.join(config.server_path, 'resource_packs')
+    bh_packs = os.path.join(config.server_path, 'behavior_packs')
+    rs_dev_packs = os.path.join(config.server_path, 'development_resource_packs')
+    bh_dev_packs = os.path.join(config.server_path, 'development_behavior_packs')
+
+    def get_paths(path: str):
+        return [str(os.path.join(path, filename)) for filename in filter(lambda x: x not in exclusion_list and not 'test_vanilla_' in x and not 'vanilla_' in x, os.listdir(path))]
+
+    def get_paths_dev(path: str):
+        return [str(os.path.join(path, filename)) for filename in os.listdir(path)]
+
+    lens = []
+    addons:List[str] = get_paths(rs_packs)
+    lens.append(len(addons)) ## resource pack count
+
+    addons.extend(get_paths(bh_packs))
+    lens.append(len(addons) - lens[0]) ## behavior pack count
+
+    addons.extend(get_paths_dev(rs_dev_packs)) ## no need to waste resources using get_paths as the development folders wont ever (hopefully) include vanilla packs
+    lens.append(len(addons) - lens[0] - lens[1]) ## dev resource pack count
+    
+    addons.extend(get_paths_dev(bh_dev_packs)) ## no need to waste resources using get_paths as the development folders wont ever (hopefully) include vanilla packs
+    lens.append(len(addons) - lens[0] - lens[1] - lens[2]) ## dev behavior pack count
 
     if lens[0] + lens[1] + lens[2] + lens[3] == 0:
         print('No Packs Found!')
@@ -315,11 +360,14 @@ def load_config() -> bool:
 def display_help():
     output = '\nCOMMANDS\n\n'
     output += 'How to use: py main.py <command>\n\n'
-    output += 'setup - run the setup function to update your config.json file\n\n'
-    output += 'list or list <type/name/name-enabled> - returns a list of all commands in the server, active or inactive, or a list sorted by the given key\n\n'
-    output += 'help - displays help\n\n'
-    output += 'enable <uuid/all> - enables the addon with the given uuid or all addons\n\n'
-    output += 'disable <uuid/all> - disables the addon with the given uuid or all addons\n\n'
+    output += '     setup - Run the setup function to update your config.json file\n\n'
+    output += '     list or list <type/name/name-enabled> - Returns a list of all commands in the server, active or inactive, or a list sorted by the given key\n\n'
+    output += '     help - Displays help\n\n'
+    output += '     enable <uuid/all> - Enables the addon with the given uuid or all addons\n'
+    output += '     disable <uuid/all> - Disables the addon with the given uuid or all addons\n\n'
+    output += '     blacklist_all - Adds all addons to the blacklist.json file to be excluded when handling addons\n'
+    output += '     view_blacklist - shows all addons that are currently blacklisted\n'
+    output += '     clear_blacklist - removes all addons from the blacklist\n'
     print(output)
 
 if __name__ == '__main__':
@@ -330,7 +378,7 @@ if __name__ == '__main__':
         setup_config()
 
     if not len(args) > 0:
-        print('no args inputted, closing...')
+        print('No args inputted, closing...')
         exit()
 
     match args[0]:
@@ -346,7 +394,7 @@ if __name__ == '__main__':
         
         case 'enable':
             if len(args) < 2:
-                print('please put the addon uuid you want to enable!')
+                print('Please put the addon uuid you want to enable!')
                 exit()
             if args[1] == 'all':
                 enable_all()
@@ -356,13 +404,30 @@ if __name__ == '__main__':
         
         case 'disable':
             if len(args) < 2:
-                print('please put the addon uuid you want to disable!')
+                print('Please put the addon uuid you want to disable!')
                 exit()
             if args[1] == 'all':
                 disable_all()
             else:
                 disable_addon(args[1])
             exit()
+        
+        case 'blacklist_all':
+            old_blacklist: List[str] = get_blacklist()
+            for i, addon_path in enumerate(get_all_addon_paths()):
+                print('Blacklisted ' + addon_path)
+                old_blacklist.append(addon_path.split('\\')[-1])
+            
+            set_blacklist(old_blacklist)
+            print('Successfully blacklisted all addons!')
+        
+        case 'view_blacklist':
+            blacklist: List[str] = get_blacklist()
+            print(''.join([addon_path + '\n' for addon_path in blacklist])[:-1])
+        
+        case 'clear_blacklist':
+            set_blacklist([])
+            print('Successfully cleared addon blacklist!')
 
         case _:
             print('Unknown command!')
